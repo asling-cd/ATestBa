@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-title" content="AAISM Exam Simulator">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
-    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22ISACA%20AAISM%20Exam%20Simulator%22%2C%22short_name%22%3A%22AAISM%20Exam%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon.svg%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+    <link rel="manifest" href="manifest.json">
     <style>
         :root {
             --primary: #0f172a;
@@ -382,6 +382,20 @@
     </section>
 </div>
 
+<div id="sync-password-modal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="sync-password-title">
+        <h2 id="sync-password-title">Google Sheets Sync</h2>
+        <p>Enter the sync password configured in your Google Apps Script. This password is stored only on this device.</p>
+        <label for="sync-password-input">Sync password
+            <input id="sync-password-input" type="password" autocomplete="off">
+        </label>
+        <div class="modal-actions" style="margin-top:18px">
+            <button onclick="cancelSyncPassword()">Cancel</button>
+            <button class="btn-exam" onclick="submitSyncPassword()">Continue</button>
+        </div>
+    </section>
+</div>
+
 <script>
     let allQuestions = [];
     let filteredIndices = [];
@@ -392,7 +406,7 @@
     let currentBankKey = '';
     let autoSyncTimer = null;
     let cloudUpdatedAt = '';
-    let appResumeSyncBound = false;
+    let syncPasswordResolver = null;
     const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz0NmVay8nmbOOypqUqlIyNmWTxuZtiPBOxtRu600djsPSb_GR_XGiOrgWubXBRZzy0BA/exec';
     let domainConfig = { mode: 'legacy', labels: {} };
     let examSession = null;
@@ -446,7 +460,6 @@
         restoreExamSession();
         restoreLastQuestionPosition();
         syncFromCloud(true);
-        bindAppResumeSync();
     }
 
     function configureDomainModel(questions, filename) {
@@ -1243,7 +1256,7 @@
         if (!SYNC_ENDPOINT || !currentBankKey) return;
         clearTimeout(autoSyncTimer);
         autoSyncTimer = setTimeout(async () => {
-            const password = getSyncPassword();
+            const password = await getSyncPassword();
             if (!password) return;
             try {
                 const initializedKey = `aaism_sync_initialized_${currentBankKey}`;
@@ -1260,7 +1273,7 @@
 
     async function syncFromCloud(initial = false) {
         if (!SYNC_ENDPOINT || !currentBankKey) return;
-        const password = getSyncPassword();
+        const password = await getSyncPassword();
         if (!password) return;
         try {
             const remote = await callSyncServer('read', password);
@@ -1279,22 +1292,31 @@
         }
     }
 
-    function bindAppResumeSync() {
-        if (appResumeSyncBound) return;
-        appResumeSyncBound = true;
-        window.addEventListener('focus', () => syncFromCloud(false));
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') syncFromCloud(false);
-        });
-    }
 
     function getSyncPassword() {
         let password = localStorage.getItem('aaism_sync_password');
-        if (!password) {
-            password = prompt('Enter your Google Sheets sync password:');
-            if (password) localStorage.setItem('aaism_sync_password', password);
-        }
-        return password;
+        if (password) return Promise.resolve(password);
+        return new Promise(resolve => {
+            syncPasswordResolver = resolve;
+            document.getElementById('sync-password-input').value = '';
+            document.getElementById('sync-password-modal').hidden = false;
+            document.getElementById('sync-password-input').focus();
+        });
+    }
+
+    function submitSyncPassword() {
+        const password = document.getElementById('sync-password-input').value.trim();
+        if (!password) return;
+        localStorage.setItem('aaism_sync_password', password);
+        document.getElementById('sync-password-modal').hidden = true;
+        if (syncPasswordResolver) syncPasswordResolver(password);
+        syncPasswordResolver = null;
+    }
+
+    function cancelSyncPassword() {
+        document.getElementById('sync-password-modal').hidden = true;
+        if (syncPasswordResolver) syncPasswordResolver(null);
+        syncPasswordResolver = null;
     }
 
     function getSyncPayload() {
@@ -1339,6 +1361,8 @@
         reviewSchedule = readSavedReviewSchedule(currentBankKey);
         examSession = readSavedExamSession();
         applyFilter('all');
+        restoreLastQuestionPosition();
+        if (examSession?.active) restoreExamSession();
         updateStatsDisplay();
     }
 
@@ -1347,7 +1371,7 @@
             alert('Load a question bank before synchronizing progress.');
             return;
         }
-        const password = getSyncPassword();
+        const password = await getSyncPassword();
         if (!password) return;
         try {
             await callSyncServer('write', password, getSyncPayload());
