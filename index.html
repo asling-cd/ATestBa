@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISACA AAISM Adaptive Exam & Analytics Bank</title>
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AAISM Exam Simulator">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22ISACA%20AAISM%20Exam%20Simulator%22%2C%22short_name%22%3A%22AAISM%20Exam%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f8fafc%22%2C%22theme_color%22%3A%22%230f172a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22icon.svg%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+    <style>
+        :root {
+            --primary: #0f172a;
+            --accent: #2563eb;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #334155;
+            --correct: #16a34a;
+            --incorrect: #dc2626;
+            --flagged: #d97706;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.3rem; }
+        .score-info { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
+        .session-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .timer-display { min-width: 92px; text-align: center; padding: 8px 12px; border-radius: 6px; background: #1e293b; color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .timer-display.warning { background: #92400e; color: #fffbeb; }
+        .timer-display.expired { background: #991b1b; color: #fff; }
+        .btn-finish { background: #dc2626; color: #fff; border-color: #b91c1c; }
+        .btn-finish:hover { background: #b91c1c; }
+        .btn-pause { background: #f59e0b; color: #451a03; border-color: #d97706; }
+        [hidden] { display: none !important; }
+
+        .toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: nowrap;
+            align-items: center;
+            overflow-x: auto;
+            padding-bottom: 3px;
+        }
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: nowrap;
+            flex: 0 0 auto;
+            padding: 0 8px 0 0;
+            border-right: 1px solid #cbd5e1;
+        }
+        .toolbar-group-label {
+            display: none;
+        }
+
+        .workspace {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+        .workspace.exam-active { grid-template-columns: 1fr; }
+
+        .left-column { min-width: 0; }
+
+        .question-card, .review-panel {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        button, select, label.file-label {
+            background-color: white;
+            color: var(--text);
+            border: 1px solid #cbd5e1;
+            padding: 9px 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-family: inherit;
+            line-height: normal;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        button.active {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-load { background-color: #10b981; color: white; border-color: #059669; }
+        .btn-load:hover { background-color: #059669; }
+        .btn-exam { background-color: #8b5cf6; color: white; border-color: #7c3aed; }
+        .btn-reset { margin-left: auto; color: #ef4444; border-color: #fca5a5; }
+        .toolbar-group .btn-reset { margin-left: 0; }
+        .toolbar-menu {
+            position: relative;
+            flex: 0 0 auto;
+        }
+        .toolbar-menu summary {
+            list-style: none;
+            background: white;
+            color: var(--text);
+            border: 1px solid #cbd5e1;
+            padding: 9px 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            font-family: inherit;
+            line-height: normal;
+            white-space: nowrap;
+        }
+        .toolbar-menu summary::-webkit-details-marker { display: none; }
+        .toolbar-menu[open] summary { background: #f1f5f9; }
+        .toolbar-menu-items {
+            position: fixed;
+            z-index: 10;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 220px;
+            padding: 8px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.15);
+        }
+        .toolbar-menu-items .file-label,
+        .toolbar-menu-items button { width: 100%; justify-content: flex-start; }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            min-height: 480px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .question-card { padding: 24px; }
+        .review-panel {
+            position: sticky;
+            top: 20px;
+            max-height: 75vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .review-panel h3 { margin: 0 0 14px; color: var(--primary); }
+        .review-placeholder { color: #64748b; line-height: 1.55; text-align: center; padding: 45px 16px; }
+        .option-breakdown { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 0.92rem; }
+        .breakdown-item { margin-top: 10px; line-height: 1.5; }
+        .review-note { margin-bottom: 14px; padding: 12px; border-left: 4px solid #d97706; background: #fffbeb; line-height: 1.5; }
+        .review-note p { margin: 6px 0 0; }
+        .official-explanation { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+        .official-explanation p { margin: 10px 0 0; line-height: 1.55; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .domain-badge {
+            font-size: 0.75rem;
+            background-color: #e2e8f0;
+            color: #475569;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .flag-btn {
+            background: none;
+            border: 1px solid #cbd5e1;
+            color: #64748b;
+        }
+
+        .flag-btn.flagged {
+            background-color: var(--flagged);
+            color: white;
+            border-color: var(--flagged);
+        }
+
+        .question-text {
+            font-size: 1.05rem;
+            line-height: 1.5;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .options-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .option-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .option-item:hover { background-color: #f1f5f9; }
+        .option-item input { margin-right: 12px; margin-top: 3px; }
+
+        .explanation-box {
+            background-color: #f8fafc;
+            border-left: 4px solid var(--accent);
+            padding: 16px;
+            border-radius: 0 8px 8px 0;
+            margin-top: auto;
+            display: block;
+            line-height: 1.5;
+        }
+
+        .explanation-box.hidden { display: none; }
+        
+        .status-banner {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+        .status-banner.correct { background-color: #dcfce7; color: var(--correct); }
+        .status-banner.incorrect { background-color: #fee2e2; color: var(--incorrect); }
+        .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .65); }
+        .modal { width: min(100%, 520px); background: #fff; border-radius: 12px; padding: 26px; box-shadow: 0 20px 50px rgba(15, 23, 42, .25); }
+        .modal h2 { margin: 0 0 8px; color: var(--primary); }
+        .modal p { line-height: 1.55; color: #64748b; }
+        .setup-fields { display: grid; gap: 14px; margin: 20px 0; }
+        .setup-fields label { display: grid; gap: 6px; font-weight: 600; color: var(--text); }
+        .setup-fields select { width: 100%; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+        .results-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 20px 0; }
+        .result-metric { padding: 14px; border-radius: 8px; background: #f8fafc; border: 1px solid #e2e8f0; }
+        .result-metric strong { display: block; font-size: 1.45rem; color: var(--primary); }
+        .result-metric span { font-size: .8rem; color: #64748b; }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding: 10px 0;
+            position: sticky;
+            bottom: 0;
+            z-index: 3;
+            background: linear-gradient(to bottom, rgba(248,250,252,0), var(--bg) 28%);
+        }
+
+        /* Stats Dashboard Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+        .stat-card {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .stat-card h4 { margin: 0 0 8px 0; color: #475569; font-size: 0.9rem; }
+        .stat-val { font-size: 1.6rem; font-weight: bold; color: var(--primary); }
+        .stat-sub { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+
+        .empty-state { text-align: center; padding: 40px; color: #64748b; }
+        input[type="file"] { display: none; }
+
+        @media (max-width: 899px) {
+            body { padding: 12px; }
+            header { align-items: flex-start; gap: 16px; flex-direction: column; }
+            .workspace { grid-template-columns: 1fr; }
+            .review-panel { position: static; max-height: none; }
+        }
+
+        @media (max-width: 560px) {
+            .toolbar { align-items: stretch; }
+            .toolbar > * { width: 100%; justify-content: center; }
+            .btn-reset { margin-left: 0; }
+            .card, .question-card, .review-panel { padding: 16px; }
+            .card-header { gap: 12px; align-items: flex-start; }
+            .flag-btn { white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+            <div>
+                <h1>ISACA AAISM Exam & Review Simulator</h1>
+                <div class="score-info" id="stats-display">No File Loaded</div>
+                <div class="score-info" id="action-status" aria-live="polite"></div>
+        </div>
+        <div class="session-controls">
+            <div id="exam-session-controls" hidden>
+                <span id="timer-display" class="timer-display" aria-live="polite">90:00</span>
+                <button id="pause-exam-btn" class="btn-pause" onclick="toggleExamPause()">Pause</button>
+                <button class="btn-finish" onclick="finishExam(false)">Finish Exam</button>
+            </div>
+            <label style="font-size: 0.85rem; cursor:pointer;">
+                <input type="checkbox" id="exam-mode-toggle" onchange="toggleExamMode()"> Hide Explanations (Exam Mode)
+            </label>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <details class="toolbar-menu" ontoggle="positionImportExportMenu(this)">
+                <summary title="Load a question bank or import/export saved progress">⇅ Import / Export</summary>
+                <div class="toolbar-menu-items">
+                    <label class="file-label btn-load" title="Load a question-bank JSON file into the simulator">
+                        <span id="load-file-label">📁 Load question bank</span>
+                        <input type="file" id="json-file-input" accept=".json" onchange="handleFileSelect(event)">
+                    </label>
+                    <button title="Export incorrectly answered or flagged questions as a review set" onclick="exportQuestionSet('review')">⬇ Export Review Set</button>
+                    <button title="Save answers, flags, exam history, and progress to a JSON backup file" onclick="exportProgress()">⬇ Export Progress</button>
+                    <label class="file-label btn-load" title="Restore answers, flags, exam history, and progress from a JSON backup file">
+                        <span>⬆ Import Progress</span>
+                        <input type="file" accept="application/json,.json" onchange="handleProgressImport(event)">
+                    </label>
+                    <button title="Upload this device's existing progress to Google Sheets" onclick="syncProgress()">☁ Upload Progress</button>
+                </div>
+            </details>
+            <select id="jump-select" onchange="jumpToQuestion(this.value)"></select>
+        </div>
+
+        <div class="toolbar-group">
+            <span class="toolbar-group-label">Study and review</span>
+            <button id="tab-all" class="active" onclick="setFilter('all')">All Questions</button>
+            <button id="tab-incorrect" onclick="setFilter('incorrect')">Incorrect</button>
+            <button id="tab-flagged" onclick="setFilter('flagged')">Flagged</button>
+        </div>
+
+        <div class="toolbar-group">
+            <span class="toolbar-group-label">Analytics and data</span>
+            <button id="tab-stats" onclick="setFilter('stats')">📊 Statistics</button>
+        </div>
+
+        <div class="toolbar-group">
+            <span class="toolbar-group-label">Exam</span>
+            <button id="tab-mock" class="btn-exam" onclick="startAdaptiveExam()">⚡ Adaptive Mock Exam</button>
+            <button class="btn-reset" onclick="resetProgress()">Reset History</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="left-column">
+            <main class="question-card" id="card-content">
+                <div class="empty-state">
+                    <h3>Loading question database…</h3>
+                    <p>If no questions load automatically, use the green file button above.</p>
+                </div>
+            </main>
+            <div class="pagination" id="pagination-controls">
+                <button id="prev-btn" onclick="prevQuestion()" disabled>&larr; Previous</button>
+                <span id="page-indicator">Question 0 of 0</span>
+                <button id="next-btn" onclick="nextQuestion()" disabled>Next &rarr;</button>
+            </div>
+        </div>
+        <aside class="review-panel" id="review-panel" aria-live="polite">
+            <h3>Justification</h3>
+            <div class="review-placeholder">Select an option on the left to review the justification.</div>
+        </aside>
+    </div>
+</div>
+
+<div id="exam-setup-modal" class="modal-backdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="exam-setup-title">
+        <h2 id="exam-setup-title">Start Adaptive Mock Exam</h2>
+        <p>You will answer a timed set of questions without seeing explanations. Your answers are saved automatically and can be reviewed after submission.</p>
+        <div class="setup-fields">
+            <label for="exam-question-count">Number of questions
+                <input id="exam-question-count" type="number" min="1" value="90" inputmode="numeric">
+            </label>
+            <label for="exam-duration-select">Time limit
+                <select id="exam-duration-select">
+                    <option value="60">60 minutes</option>
+                    <option value="90" selected>90 minutes</option>
+                    <option value="120">120 minutes</option>
+                </select>
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeExamSetup()">Cancel</button>
+            <button class="btn-exam" onclick="beginAdaptiveExam()">Start Exam</button>
+        </div>
+    </section>
+</div>
+
+<script>
+    let allQuestions = [];
+    let filteredIndices = [];
+    let currentFilteredIndex = 0;
+    let isExamMode = false;
+    let currentFilterMode = 'all';
+    let examTimerInterval = null;
+    let currentBankKey = '';
+    let autoSyncTimer = null;
+    const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz0NmVay8nmbOOypqUqlIyNmWTxuZtiPBOxtRu600djsPSb_GR_XGiOrgWubXBRZzy0BA/exec';
+    let domainConfig = { mode: 'legacy', labels: {} };
+    let examSession = null;
+
+    // User progress state
+    let userState = createEmptyUserState();
+    let reviewSchedule = {};
+
+    // Keep the latest three local progress snapshots before loading the app.
+    createProgressBackup();
+
+    // Load the packaged dataset first, then fall back to the alternate filename.
+    loadQuestionDataset();
+
+    async function loadQuestionDataset() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('aaism_last_question_bank'));
+            if (saved?.questions) {
+                setQuestionBank(saved.questions, saved.filename || 'Last question bank');
+                return;
+            }
+        } catch (error) {
+            localStorage.removeItem('aaism_last_question_bank');
+        }
+
+        for (const filename of ['isaca_aaism_qae_full.json', 'questions.json']) {
+            try {
+                const response = await fetch(filename, { cache: 'no-cache' });
+                if (!response.ok) continue;
+                const data = await response.json();
+                setQuestionBank(data, filename);
+                return;
+            } catch (error) { /* Try the next supported filename. */ }
+        }
+        document.getElementById('card-content').innerHTML = `<div class="empty-state"><h3>No question database found</h3><p>Load a JSON file to begin.</p></div>`;
+    }
+
+    function setQuestionBank(data, filename = 'Question bank') {
+        const questions = Array.isArray(data) ? data : data.questions;
+        if (!Array.isArray(questions) || !questions.length) throw new Error('Unsupported question format');
+        clearInterval(examTimerInterval);
+        currentBankKey = filename || 'Question bank';
+        userState = readSavedUserState(currentBankKey);
+        reviewSchedule = readSavedReviewSchedule(currentBankKey);
+        examSession = readSavedExamSession();
+        allQuestions = questions;
+        configureDomainModel(questions, currentBankKey);
+        document.getElementById('load-file-label').textContent = `📁 ${filename}`;
+        applyFilter('all');
+        restoreExamSession();
+        restoreLastQuestionPosition();
+        scheduleAutoSync(800);
+    }
+
+    function configureDomainModel(questions, filename) {
+        // Empty topic fields are common in imported banks and must not make a
+        // bank look domain-split. Require meaningful, consistently populated
+        // domain metadata before using the 28/28/34 domain composition.
+        const populatedDomainValues = questions
+            .map(q => q.domain ?? q.topic)
+            .map(value => String(value ?? '').trim())
+            .filter(Boolean);
+        const explicitCount = populatedDomainValues.length;
+        const distinctDomainValues = new Set(populatedDomainValues).size;
+        const useExplicit = distinctDomainValues > 1 && explicitCount >= Math.ceil(questions.length * 0.5);
+        domainConfig = {
+            mode: useExplicit ? 'explicit' : (filename === 'isaca_aaism_qae_full.json' ? 'legacy' : 'general'),
+            labels: {}
+        };
+        if (domainConfig.mode === 'legacy') {
+            domainConfig.labels = {
+                1: 'Governance & Program Management',
+                2: 'Risk Management',
+                3: 'AI Technologies & Controls'
+            };
+        } else if (domainConfig.mode === 'explicit') {
+            questions.forEach(q => {
+                const raw = q.domain ?? q.topic;
+                const match = String(raw).match(/\d+/);
+                if (match) domainConfig.labels[Number(match[0])] = String(raw).replace(/^Topic\s*/i, 'Domain ');
+            });
+        } else {
+            domainConfig.labels = { 1: 'General' };
+        }
+    }
+
+    function getDomain(qId) {
+        const index = allQuestions.findIndex(q => q.id === qId);
+        if (domainConfig.mode === 'legacy') {
+            if (qId <= 64) return 1;
+            if (qId >= 65 && qId <= 125) return 2;
+            return 3;
+        }
+        if (domainConfig.mode === 'explicit') {
+            const question = allQuestions[index];
+            const match = String(question?.domain ?? question?.topic ?? '').match(/\d+/);
+            if (match) return Number(match[0]);
+        }
+        return 1;
+    }
+
+    function getDomainDefinitions() {
+        const domainNumbers = [...new Set(allQuestions.map(q => getDomain(q.id)))].sort((a, b) => a - b);
+        return domainNumbers.map(number => ({ number, label: domainConfig.labels[number] || `Domain ${number}` }));
+    }
+
+    function getDomainLabel(qId) {
+        return domainConfig.labels[getDomain(qId)] || `Domain ${getDomain(qId)}`;
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                const questions = Array.isArray(data) ? data : data.questions;
+                if (!Array.isArray(questions) || !questions.length) throw new Error('Unsupported question format');
+                localStorage.setItem('aaism_last_question_bank', JSON.stringify({ filename: file.name, questions }));
+                setQuestionBank(questions, file.name);
+                showActionStatus(`Loaded ${file.name} (${questions.length} questions).`);
+                closeImportExportMenu();
+            } catch (err) {
+                alert('Invalid JSON file. Please ensure your JSON file is formatted correctly.');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function saveState() {
+        const allStates = readJsonStorage('aaism_exam_states_by_bank', {});
+        allStates[currentBankKey] = userState;
+        localStorage.setItem('aaism_exam_states_by_bank', JSON.stringify(allStates));
+        updateStatsDisplay();
+        scheduleAutoSync();
+    }
+
+    function createEmptyUserState() {
+        return { answers: {}, flagged: [] };
+    }
+
+    function readJsonStorage(key, fallback) {
+        try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+        catch (error) { return fallback; }
+    }
+
+    function createProgressBackup() {
+        const backups = readJsonStorage('aaism_progress_backups', []);
+        backups.unshift({
+            createdAt: new Date().toISOString(),
+            statesByBank: readJsonStorage('aaism_exam_states_by_bank', {}),
+            reviewSchedulesByBank: readJsonStorage('aaism_review_schedules_by_bank', {}),
+            examHistoryByBank: readJsonStorage('aaism_exam_history_by_bank', {}),
+            legacyState: readJsonStorage('aaism_exam_state', null),
+            sessionsByBank: readJsonStorage('aaism_exam_sessions_by_bank', {}),
+            positionsByBank: readJsonStorage('aaism_last_question_positions_by_bank', {}),
+            legacyPosition: readJsonStorage('aaism_last_question_position', null)
+        });
+        localStorage.setItem('aaism_progress_backups', JSON.stringify(backups.slice(0, 3)));
+    }
+
+    function readSavedUserState(bankKey) {
+        const allStates = readJsonStorage('aaism_exam_states_by_bank', {});
+        if (allStates[bankKey]) return allStates[bankKey];
+
+        // Migrate the previous single-bank history to the packaged bank only.
+        if (bankKey === 'isaca_aaism_qae_full.json') {
+            const legacy = readJsonStorage('aaism_exam_state', null);
+            if (legacy?.answers || legacy?.flagged) {
+                allStates[bankKey] = legacy;
+                localStorage.setItem('aaism_exam_states_by_bank', JSON.stringify(allStates));
+                return legacy;
+            }
+        }
+        return createEmptyUserState();
+    }
+
+    function readSavedReviewSchedule(bankKey) {
+        const schedules = readJsonStorage('aaism_review_schedules_by_bank', {});
+        return schedules[bankKey] || {};
+    }
+
+    function saveReviewSchedule() {
+        const schedules = readJsonStorage('aaism_review_schedules_by_bank', {});
+        schedules[currentBankKey] = reviewSchedule;
+        localStorage.setItem('aaism_review_schedules_by_bank', JSON.stringify(schedules));
+        scheduleAutoSync();
+    }
+
+    function recordReviewResult(question, answer) {
+        if (!question || answer === undefined) return;
+        const previous = reviewSchedule[question.id] || { intervalDays: 0, streak: 0 };
+        const correct = answer === question.correct;
+        const intervalDays = correct
+            ? (previous.streak >= 3 ? Math.min(30, Math.max(7, previous.intervalDays * 2)) : previous.streak === 2 ? 7 : previous.streak === 1 ? 3 : 1)
+            : 1;
+        reviewSchedule[question.id] = {
+            lastAnsweredAt: new Date().toISOString(),
+            nextReviewAt: new Date(Date.now() + intervalDays * 86400000).toISOString(),
+            intervalDays,
+            streak: correct ? previous.streak + 1 : 0,
+            lastResult: correct ? 'correct' : 'incorrect'
+        };
+        saveReviewSchedule();
+    }
+
+    function isDueForReview(question) {
+        const item = reviewSchedule[question.id];
+        return Boolean(item?.nextReviewAt && new Date(item.nextReviewAt).getTime() <= Date.now());
+    }
+
+    function readSavedExamSession() {
+        const sessions = readJsonStorage('aaism_exam_sessions_by_bank', {});
+        return sessions[currentBankKey] || null;
+    }
+
+    function persistExamSession() {
+        const sessions = readJsonStorage('aaism_exam_sessions_by_bank', {});
+        if (examSession) sessions[currentBankKey] = examSession;
+        else delete sessions[currentBankKey];
+        localStorage.setItem('aaism_exam_sessions_by_bank', JSON.stringify(sessions));
+        scheduleAutoSync();
+    }
+
+    function getQuestionAnswer(qId) {
+        return currentFilterMode === 'mock' && examSession?.active
+            ? examSession.answers[qId]
+            : userState.answers[qId];
+    }
+
+    function updateStatsDisplay() {
+        if (allQuestions.length === 0) return;
+        const total = allQuestions.length;
+        const answered = Object.keys(userState.answers).length;
+        let correctCount = 0;
+
+        allQuestions.forEach(q => {
+            if (userState.answers[q.id] === q.correct) correctCount++;
+        });
+
+        document.getElementById('stats-display').innerText = 
+            `Overall Progress: ${answered}/${total} Answered | Accuracy: ${answered > 0 ? Math.round((correctCount/answered)*100) : 0}%`;
+    }
+
+    function setFilter(filterType) {
+        currentFilterMode = filterType;
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        const activeTab = document.getElementById(`tab-${filterType}`);
+        if (activeTab) activeTab.classList.add('active');
+        applyFilter(filterType);
+        if (!['stats', 'history', 'mock'].includes(filterType)) rememberLastQuestion();
+    }
+
+    function rememberLastQuestion() {
+        if (!allQuestions.length || !filteredIndices.length || currentFilterMode === 'mock' || currentFilterMode === 'results') return;
+        const question = allQuestions[filteredIndices[currentFilteredIndex]];
+        if (!question) return;
+        const positions = readJsonStorage('aaism_last_question_positions_by_bank', {});
+        positions[currentBankKey] = {
+            questionId: question.id,
+            filter: currentFilterMode
+        };
+        localStorage.setItem('aaism_last_question_positions_by_bank', JSON.stringify(positions));
+        scheduleAutoSync();
+    }
+
+    function restoreLastQuestionPosition() {
+        if (examSession?.active) return;
+        try {
+            const positions = readJsonStorage('aaism_last_question_positions_by_bank', {});
+            let saved = positions[currentBankKey];
+            if (!saved && currentBankKey === 'isaca_aaism_qae_full.json') {
+                saved = readJsonStorage('aaism_last_question_position', null);
+                if (saved) {
+                    positions[currentBankKey] = saved;
+                    localStorage.setItem('aaism_last_question_positions_by_bank', JSON.stringify(positions));
+                }
+            }
+            if (!saved?.questionId) return;
+            const desiredFilter = ['all', 'incorrect', 'flagged'].includes(saved.filter) ? saved.filter : 'all';
+            if (desiredFilter !== currentFilterMode) {
+                currentFilterMode = desiredFilter;
+                document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+                document.getElementById(`tab-${desiredFilter}`)?.classList.add('active');
+                applyFilter(desiredFilter);
+            }
+            const savedPosition = filteredIndices.findIndex(index => allQuestions[index].id === saved.questionId);
+            if (savedPosition >= 0) {
+                currentFilteredIndex = savedPosition;
+                renderCurrentQuestion();
+            }
+        } catch (error) {
+            const positions = readJsonStorage('aaism_last_question_positions_by_bank', {});
+            delete positions[currentBankKey];
+            localStorage.setItem('aaism_last_question_positions_by_bank', JSON.stringify(positions));
+        }
+    }
+
+    function applyFilter(filterType = 'all') {
+        if (allQuestions.length === 0) return;
+
+        if (filterType === 'stats') {
+            renderStatsDashboard();
+            return;
+        }
+        // Exam history is included in the Statistics panel.
+
+        document.getElementById('pagination-controls').style.display = 'flex';
+        filteredIndices = [];
+
+        allQuestions.forEach((q, index) => {
+            const userAnswer = userState.answers[q.id];
+            const isAnswered = userAnswer !== undefined;
+            const isCorrect = userAnswer === q.correct;
+            const isFlagged = userState.flagged.includes(q.id);
+
+            const examQuestionIds = new Set(examSession?.questionIds || []);
+            const isExamQuestion = examQuestionIds.has(q.id);
+            const examAnswer = examSession?.answers?.[q.id];
+            const reviewAnswer = isExamQuestion && (filterType === 'exam-review' || filterType === 'exam-all')
+                ? examAnswer
+                : userAnswer;
+            const reviewAnswered = reviewAnswer !== undefined;
+            const reviewCorrect = reviewAnswer === q.correct;
+            if (filterType === 'all') filteredIndices.push(index);
+            else if (filterType === 'incorrect' && isAnswered && !isCorrect) filteredIndices.push(index);
+            else if (filterType === 'flagged' && isFlagged) filteredIndices.push(index);
+            else if (filterType === 'due' && isDueForReview(q)) filteredIndices.push(index);
+            else if (filterType === 'exam-review' && isExamQuestion && ((reviewAnswered && !reviewCorrect) || isFlagged)) filteredIndices.push(index);
+            else if (filterType === 'exam-all' && isExamQuestion) filteredIndices.push(index);
+        });
+
+        currentFilteredIndex = 0;
+        populateJumpDropdown();
+        renderCurrentQuestion();
+        updateStatsDisplay();
+    }
+
+    function startAdaptiveExam() {
+        if (allQuestions.length === 0) {
+            alert("Please load your questions.json file first.");
+            return;
+        }
+
+        const countInput = document.getElementById('exam-question-count');
+        countInput.max = allQuestions.length;
+        countInput.value = Math.min(90, allQuestions.length);
+        document.getElementById('exam-setup-modal').hidden = false;
+    }
+
+    function closeExamSetup() {
+        document.getElementById('exam-setup-modal').hidden = true;
+    }
+
+    function beginAdaptiveExam() {
+        closeExamSetup();
+
+        const requestedCount = Number(document.getElementById('exam-question-count').value);
+        const examQuestionCount = Math.min(
+            allQuestions.length,
+            Math.max(1, Number.isFinite(requestedCount) ? Math.floor(requestedCount) : Math.min(90, allQuestions.length))
+        );
+
+        currentFilterMode = 'mock';
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-mock').classList.add('active');
+        document.getElementById('pagination-controls').style.display = 'flex';
+
+        // Use the bank's domains when available. A bank without domain metadata uses one General pool.
+        if (domainConfig.mode === 'general') {
+            const selectedQuestions = weightedSample(allQuestions, examQuestionCount);
+            filteredIndices = selectedQuestions.map(q => allQuestions.findIndex(item => item.id === q.id));
+            currentFilteredIndex = 0;
+            const durationSeconds = Number(document.getElementById('exam-duration-select').value) * 60;
+            examSession = {
+                active: true,
+                paused: false,
+                completed: false,
+                answers: {},
+                questionIds: selectedQuestions.map(q => q.id),
+                currentIndex: 0,
+                durationSeconds,
+                timeRemaining: durationSeconds
+            };
+            persistExamSession();
+            document.getElementById('exam-mode-toggle').checked = true;
+            isExamMode = true;
+            populateJumpDropdown();
+            showExamControls();
+            renderCurrentQuestion();
+            startExamTimer();
+            return;
+        }
+
+        // Categorize pools by domain
+        let d1Pool = allQuestions.filter(q => getDomain(q.id) === 1);
+        let d2Pool = allQuestions.filter(q => getDomain(q.id) === 2);
+        let d3Pool = allQuestions.filter(q => getDomain(q.id) === 3);
+
+        // Preserve the target composition while honoring the requested count.
+        const d1Target = Math.round(examQuestionCount * 0.31);
+        const d2Target = Math.round(examQuestionCount * 0.31);
+        const d3Target = examQuestionCount - d1Target - d2Target;
+        let sampledD1 = weightedSample(d1Pool, Math.min(d1Target, d1Pool.length));
+        let sampledD2 = weightedSample(d2Pool, Math.min(d2Target, d2Pool.length));
+        let sampledD3 = weightedSample(d3Pool, Math.min(d3Target, d3Pool.length));
+
+        let selectedQuestions = [...sampledD1, ...sampledD2, ...sampledD3];
+        if (selectedQuestions.length < examQuestionCount) {
+            const selectedIds = new Set(selectedQuestions.map(q => q.id));
+            const remaining = allQuestions.filter(q => !selectedIds.has(q.id));
+            selectedQuestions = selectedQuestions.concat(weightedSample(remaining, examQuestionCount - selectedQuestions.length));
+        }
+        
+        filteredIndices = selectedQuestions.map(q => allQuestions.findIndex(item => item.id === q.id));
+        currentFilteredIndex = 0;
+
+        const durationSeconds = Number(document.getElementById('exam-duration-select').value) * 60;
+        examSession = {
+            active: true,
+            paused: false,
+            completed: false,
+            answers: {},
+            questionIds: selectedQuestions.map(q => q.id),
+            currentIndex: 0,
+            durationSeconds,
+            timeRemaining: durationSeconds
+        };
+        persistExamSession();
+
+        // Mock exams always hide explanations until submission.
+        document.getElementById('exam-mode-toggle').checked = true;
+        isExamMode = true;
+
+        populateJumpDropdown();
+        showExamControls();
+        renderCurrentQuestion();
+        startExamTimer();
+    }
+
+    function restoreExamSession() {
+        if (!examSession?.active || !examSession.questionIds?.length) return;
+        if (domainConfig.mode === 'general' && examSession.questionIds.length < Math.min(90, allQuestions.length)) {
+            // Discard an incomplete general-bank session created by an older build.
+            examSession = null;
+            persistExamSession();
+            return;
+        }
+        const restoredIndices = examSession.questionIds.map(id => allQuestions.findIndex(q => q.id === id)).filter(index => index >= 0);
+        if (!restoredIndices.length || examSession.timeRemaining <= 0) {
+            examSession = null;
+            persistExamSession();
+            return;
+        }
+        currentFilterMode = 'mock';
+        filteredIndices = restoredIndices;
+        currentFilteredIndex = Math.min(examSession.currentIndex || 0, filteredIndices.length - 1);
+        isExamMode = true;
+        document.getElementById('exam-mode-toggle').checked = true;
+        document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-mock').classList.add('active');
+        populateJumpDropdown();
+        showExamControls();
+        renderCurrentQuestion();
+        startExamTimer();
+    }
+
+    function showExamControls() {
+        document.getElementById('exam-session-controls').hidden = false;
+        document.getElementById('pause-exam-btn').textContent = examSession.paused ? 'Resume' : 'Pause';
+        updateTimerDisplay();
+    }
+
+    function formatTime(seconds) {
+        const minutes = Math.floor(Math.max(0, seconds) / 60);
+        const remainingSeconds = Math.max(0, seconds) % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay() {
+        if (!examSession) return;
+        const timer = document.getElementById('timer-display');
+        timer.textContent = examSession.paused ? `Paused · ${formatTime(examSession.timeRemaining)}` : formatTime(examSession.timeRemaining);
+        timer.classList.toggle('warning', examSession.timeRemaining <= 300 && examSession.timeRemaining > 0);
+        timer.classList.toggle('expired', examSession.timeRemaining <= 0);
+    }
+
+    function startExamTimer() {
+        clearInterval(examTimerInterval);
+        if (!examSession?.active || examSession.paused) return;
+        examTimerInterval = setInterval(() => {
+            if (!examSession?.active || examSession.paused) return;
+            examSession.timeRemaining -= 1;
+            updateTimerDisplay();
+            if (examSession.timeRemaining <= 0) finishExam(true);
+            else persistExamSession();
+        }, 1000);
+    }
+
+    function toggleExamPause() {
+        if (!examSession?.active) return;
+        examSession.paused = !examSession.paused;
+        persistExamSession();
+        showExamControls();
+        startExamTimer();
+    }
+
+    function finishExam(timeExpired = false, automatic = false) {
+        if (!examSession?.active) return;
+        if (!timeExpired && !automatic && !confirm('Submit this exam now? You will see your results and explanations.')) return;
+
+        clearInterval(examTimerInterval);
+        const questionIds = examSession.questionIds.slice();
+        const answers = { ...examSession.answers };
+        const questions = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean);
+        const result = { total: questions.length, answered: 0, correct: 0, timeExpired, domains: {} };
+        questions.forEach(q => {
+            const answer = answers[q.id];
+            const domain = getDomain(q.id);
+            if (!result.domains[domain]) result.domains[domain] = { total: 0, answered: 0, correct: 0 };
+            result.domains[domain].total++;
+            if (answer !== undefined) {
+                result.answered++;
+                result.domains[domain].answered++;
+                userState.answers[q.id] = answer;
+                recordReviewResult(q, answer);
+            }
+            if (answer === q.correct) {
+                result.correct++;
+                result.domains[domain].correct++;
+            }
+        });
+        saveState();
+        saveExamAttempt(result, answers, questionIds);
+        examSession = { ...examSession, active: false, completed: true, result };
+        persistExamSession();
+        document.getElementById('exam-session-controls').hidden = true;
+        document.getElementById('exam-mode-toggle').checked = false;
+        isExamMode = false;
+        document.querySelector('.workspace')?.classList.remove('exam-active');
+        currentFilterMode = 'results';
+        renderExamResults(result);
+    }
+
+    function readExamHistory() {
+        const histories = readJsonStorage('aaism_exam_history_by_bank', {});
+        return histories[currentBankKey] || [];
+    }
+
+    function saveExamAttempt(result, answers, questionIds) {
+        const histories = readJsonStorage('aaism_exam_history_by_bank', {});
+        const attempt = {
+            id: `attempt-${Date.now()}`,
+            completedAt: new Date().toISOString(),
+            timeExpired: result.timeExpired,
+            total: result.total,
+            answered: result.answered,
+            correct: result.correct,
+            accuracy: result.answered ? Math.round((result.correct / result.answered) * 100) : 0,
+            domains: result.domains,
+            questionIds,
+            answers
+        };
+        histories[currentBankKey] = [attempt, ...(histories[currentBankKey] || [])].slice(0, 100);
+        localStorage.setItem('aaism_exam_history_by_bank', JSON.stringify(histories));
+        scheduleAutoSync();
+    }
+
+    function renderExamHistory() {
+        document.getElementById('pagination-controls').style.display = 'none';
+        const history = readExamHistory();
+        const rows = history.length ? history.map((attempt, index) => {
+            const date = new Date(attempt.completedAt).toLocaleString();
+            return `<div class="stat-card">
+                <h4>Attempt ${history.length - index}</h4>
+                <div class="stat-val">${attempt.accuracy}%</div>
+                <div class="stat-sub">${escapeHtml(date)}${attempt.timeExpired ? ' · Time expired' : ''}</div>
+                <div class="stat-sub">${attempt.correct}/${attempt.total} correct · ${attempt.answered}/${attempt.total} answered</div>
+            </div>`;
+        }).join('') : '<div class="empty-state"><h3>No exam attempts yet</h3><p>Complete an adaptive mock exam to start building your history.</p></div>';
+        document.getElementById('card-content').innerHTML = `<div class="card-header"><strong>📈 Exam History</strong></div><div class="stats-grid">${rows}</div>`;
+        document.getElementById('review-panel').hidden = false;
+        document.getElementById('review-panel').innerHTML = '<h3>Exam History</h3><div class="review-placeholder">Select an exam mode to create a saved attempt.</div>';
+    }
+
+    function renderExamResults(result) {
+        document.getElementById('pagination-controls').style.display = 'none';
+        document.getElementById('review-panel').hidden = false;
+        document.querySelector('.workspace')?.classList.remove('exam-active');
+        const percentage = result.answered ? Math.round((result.correct / result.answered) * 100) : 0;
+        const domainCards = Object.entries(result.domains).map(([domain, stats]) => {
+            const accuracy = stats.answered ? Math.round((stats.correct / stats.answered) * 100) : 0;
+            return `<div class="stat-card"><h4>${escapeHtml(domainConfig.labels[domain] || `Domain ${domain}`)}</h4><div class="stat-val">${accuracy}%</div><div class="stat-sub">${stats.correct} correct of ${stats.answered} answered</div></div>`;
+        }).join('');
+        document.getElementById('card-content').innerHTML = `<div class="card-header"><strong>📋 Exam Results</strong><span class="domain-badge">${result.timeExpired ? 'Time expired' : 'Submitted'}</span></div><p>${result.timeExpired ? 'Your time limit was reached and the exam was submitted automatically.' : 'Your exam has been submitted successfully.'}</p><div class="results-summary"><div class="result-metric"><strong>${percentage}%</strong><span>Accuracy</span></div><div class="result-metric"><strong>${result.correct}/${result.total}</strong><span>Correct</span></div><div class="result-metric"><strong>${result.answered}/${result.total}</strong><span>Answered</span></div></div><div class="stats-grid">${domainCards}</div><div class="modal-actions" style="margin-top:20px"><button class="btn-exam" onclick="setFilter('exam-review')">Review Incorrect or Flagged</button><button onclick="setFilter('exam-all')">Review All</button></div>`;
+        document.getElementById('review-panel').innerHTML = '<h3>Exam complete</h3><div class="review-placeholder">Choose “Review Incorrect Answers” to study missed questions.</div>';
+    }
+
+    // Weighted selection prioritizing previously incorrect and flagged questions.
+    function weightedSample(pool, sampleCount) {
+        let weightedPool = [];
+        pool.forEach(q => {
+            let userAnswer = userState.answers[q.id];
+            let weight = 1;
+            if (userAnswer !== undefined && userAnswer !== q.correct) {
+                weight += 4;
+            }
+            if (userState.flagged.includes(q.id)) weight += 3;
+            for (let i = 0; i < weight; i++) {
+                weightedPool.push(q);
+            }
+        });
+
+        let selected = new Set();
+        while (selected.size < sampleCount && weightedPool.length > 0) {
+            let randomIndex = Math.floor(Math.random() * weightedPool.length);
+            selected.add(weightedPool[randomIndex]);
+        }
+        return Array.from(selected);
+    }
+
+    function populateJumpDropdown() {
+        const select = document.getElementById('jump-select');
+        select.innerHTML = '';
+
+        if (filteredIndices.length === 0) {
+            select.innerHTML = `<option>No Questions</option>`;
+            return;
+        }
+
+        filteredIndices.forEach((qIdx, pos) => {
+            const q = allQuestions[qIdx];
+            const isFlagged = userState.flagged.includes(q.id) ? '★ ' : '';
+            const opt = document.createElement('option');
+            opt.value = pos;
+            opt.innerText = `${isFlagged}Q${q.id} (${getDomainLabel(q.id)})`;
+            select.appendChild(opt);
+        });
+    }
+
+    function renderCurrentQuestion() {
+        const card = document.getElementById('card-content');
+        const reviewPanel = document.getElementById('review-panel');
+        const examActive = isExamMode || currentFilterMode === 'mock';
+        reviewPanel.hidden = examActive;
+        document.querySelector('.workspace')?.classList.toggle('exam-active', examActive);
+        
+        if (allQuestions.length === 0) return;
+
+        if (filteredIndices.length === 0) {
+            card.innerHTML = `<div class="empty-state">No questions found for this view.</div>`;
+            reviewPanel.innerHTML = `<h3>Justification</h3><div class="review-placeholder">There are no questions in this view.</div>`;
+            document.getElementById('page-indicator').innerText = `0 of 0`;
+            document.getElementById('prev-btn').disabled = true;
+            document.getElementById('next-btn').disabled = true;
+            return;
+        }
+
+        const qIndex = filteredIndices[currentFilteredIndex];
+        const q = allQuestions[qIndex];
+        const userAnswer = getQuestionAnswer(q.id);
+        const isAnswered = userAnswer !== undefined;
+        const isCorrect = userAnswer === q.correct;
+        const isFlagged = userState.flagged.includes(q.id);
+        const domainNum = getDomain(q.id);
+
+        document.getElementById('jump-select').value = currentFilteredIndex;
+        document.getElementById('page-indicator').innerText = `Question ${currentFilteredIndex + 1} of ${filteredIndices.length} (ID #${q.id})`;
+        
+        document.getElementById('prev-btn').disabled = currentFilteredIndex === 0;
+        document.getElementById('next-btn').disabled = currentFilteredIndex === filteredIndices.length - 1;
+
+        card.innerHTML = `
+            <div class="card-header">
+                <div>
+                    <strong>Question ${q.id}</strong>
+                    <span class="domain-badge">${escapeHtml(getDomainLabel(q.id))}</span>
+                </div>
+                <button class="flag-btn ${isFlagged ? 'flagged' : ''}" onclick="toggleFlag(${q.id})">
+                    ${isFlagged ? '★ Flagged' : '☆ Flag for Review'}
+                </button>
+            </div>
+
+            <div class="question-text">${escapeHtml(q.question)}</div>
+
+            <div class="options-group">
+                ${q.options.map(opt => {
+                    const letter = opt.charAt(0);
+                    const checked = userAnswer === letter ? 'checked' : '';
+                    return `
+                        <label class="option-item">
+                            <input type="radio" name="option" value="${letter}" ${checked} onclick="selectOption(${q.id}, '${letter}')">
+                            <span>${escapeHtml(opt)}</span>
+                        </label>
+                    `;
+                }).join('')}
+            </div>
+
+        `;
+
+        const explanation = q.full_explanation || q.explanation || '';
+        const reviewNote = q.review_note
+            ? `<div class="review-note"><strong>Review note</strong><p>${escapeHtml(q.review_note)}</p></div>`
+            : '';
+        const breakdown = q.justifications && Object.entries(q.justifications).length
+            ? `<div class="option-breakdown"><strong>Option breakdown</strong>${Object.entries(q.justifications).map(([opt, text]) => `<div class="breakdown-item"><strong>${escapeHtml(opt)}:</strong> ${escapeHtml(text)}</div>`).join('')}</div>`
+            : '';
+        reviewPanel.innerHTML = `<h3>Justification</h3>${isAnswered && !isExamMode
+            ? `<div class="explanation-box">${reviewNote}<div class="status-banner ${isCorrect ? 'correct' : 'incorrect'}">${isCorrect ? '✓ Your selection is correct.' : `✗ Your selection (${escapeHtml(userAnswer)}) is incorrect. Correct answer: ${escapeHtml(q.correct)}.`}</div>${breakdown}<div class="official-explanation"><strong>Official justification</strong>${renderExplanation(explanation)}</div></div>`
+            : `<div class="review-placeholder">${isExamMode ? 'Explanations are hidden in Exam Mode.' : 'Select an option on the left to review the justification.'}</div>`}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+    }
+
+    function renderExplanation(text) {
+        return String(text || '')
+            .split(/\n\s*\n/)
+            .map(paragraph => paragraph.trim())
+            .filter(Boolean)
+            .map(paragraph => `<p>${escapeHtml(paragraph)}</p>`)
+            .join('');
+    }
+
+    function renderStatsDashboard() {
+        document.getElementById('pagination-controls').style.display = 'none';
+        const card = document.getElementById('card-content');
+        document.getElementById('review-panel').innerHTML = '<h3>Justification</h3><div class="review-placeholder">Choose a question to review its explanation.</div>';
+
+        const definitions = getDomainDefinitions();
+        const stats = Object.fromEntries(definitions.map(({ number }) => [number, { total: 0, answered: 0, correct: 0 }]));
+
+        allQuestions.forEach(q => {
+            const d = getDomain(q.id);
+            if (!stats[d]) stats[d] = { total: 0, answered: 0, correct: 0 };
+            stats[d].total++;
+            const ans = userState.answers[q.id];
+            if (ans !== undefined) {
+                stats[d].answered++;
+                if (ans === q.correct) stats[d].correct++;
+            }
+        });
+
+        function calcAcc(c, a) { return a > 0 ? Math.round((c / a) * 100) : 0; }
+
+        const cards = definitions.map(({ number, label }) => {
+            const item = stats[number] || { total: 0, answered: 0, correct: 0 };
+            return `<div class="stat-card">
+                <h4>${escapeHtml(label)}</h4>
+                <div class="stat-val">${calcAcc(item.correct, item.answered)}% Accuracy</div>
+                <div class="stat-sub">Answered: ${item.answered} / ${item.total}</div>
+                <div class="stat-sub">Correct: ${item.correct} | Incorrect: ${item.answered - item.correct}</div>
+            </div>`;
+        }).join('');
+
+        const history = readExamHistory();
+        const historyRows = history.length ? history.map((attempt, index) => {
+            const date = new Date(attempt.completedAt).toLocaleString();
+            return `<div class="stat-card"><h4>Attempt ${history.length - index}</h4><div class="stat-val">${attempt.accuracy}%</div><div class="stat-sub">${escapeHtml(date)}${attempt.timeExpired ? ' · Time expired' : ''}</div><div class="stat-sub">${attempt.correct}/${attempt.total} correct · ${attempt.answered}/${attempt.total} answered</div></div>`;
+        }).join('') : '<div class="empty-state"><p>No exam attempts yet. Complete an adaptive mock exam to start building history.</p></div>';
+        card.innerHTML = `<div class="card-header"><strong>📊 Statistics and Exam History</strong></div><h3>Domain performance</h3><div class="stats-grid">${cards}</div><h3 style="margin-top:24px">Previous exam attempts</h3><div class="stats-grid">${historyRows}</div>`;
+    }
+
+    function selectOption(qId, letter) {
+        if (currentFilterMode === 'mock' && examSession?.active) {
+            examSession.answers[qId] = letter;
+            persistExamSession();
+            document.querySelectorAll('input[name="option"]').forEach(input => input.disabled = true);
+            if (currentFilteredIndex >= filteredIndices.length - 1) {
+                finishExam(false, true);
+            } else {
+                window.setTimeout(() => {
+                    if (examSession?.active) nextQuestion();
+                }, 250);
+            }
+        } else {
+            userState.answers[qId] = letter;
+            saveState();
+            const question = allQuestions.find(item => item.id === qId);
+            recordReviewResult(question, letter);
+            renderCurrentQuestion();
+            rememberLastQuestion();
+        }
+    }
+
+    function toggleFlag(qId) {
+        const idx = userState.flagged.indexOf(qId);
+        if (idx > -1) userState.flagged.splice(idx, 1);
+        else userState.flagged.push(qId);
+        saveState();
+        populateJumpDropdown();
+        renderCurrentQuestion();
+        rememberLastQuestion();
+    }
+
+    function toggleExamMode() {
+        isExamMode = document.getElementById('exam-mode-toggle').checked;
+        document.getElementById('review-panel').hidden = isExamMode;
+        document.querySelector('.workspace')?.classList.toggle('exam-active', isExamMode);
+        renderCurrentQuestion();
+    }
+
+    function nextQuestion() {
+        if (currentFilteredIndex < filteredIndices.length - 1) {
+            currentFilteredIndex++;
+            if (examSession?.active) { examSession.currentIndex = currentFilteredIndex; persistExamSession(); }
+            renderCurrentQuestion();
+            rememberLastQuestion();
+        }
+    }
+
+    function prevQuestion() {
+        if (currentFilteredIndex > 0) {
+            currentFilteredIndex--;
+            if (examSession?.active) { examSession.currentIndex = currentFilteredIndex; persistExamSession(); }
+            renderCurrentQuestion();
+            rememberLastQuestion();
+        }
+    }
+
+    function jumpToQuestion(pos) {
+        currentFilteredIndex = parseInt(pos);
+        if (examSession?.active) { examSession.currentIndex = currentFilteredIndex; persistExamSession(); }
+        renderCurrentQuestion();
+        rememberLastQuestion();
+    }
+
+    function resetProgress() {
+        if (confirm("Reset all stored answers and review flags?")) {
+            userState = { answers: {}, flagged: [] };
+            reviewSchedule = {};
+            saveState();
+            saveReviewSchedule();
+            applyFilter(currentFilterMode);
+        }
+    }
+
+    function getExportAnswer(qId) {
+        if (currentFilterMode === 'mock' && examSession?.active && examSession.answers[qId] !== undefined) {
+            return examSession.answers[qId];
+        }
+        return userState.answers[qId];
+    }
+
+    function exportQuestionSet(type) {
+        if (!allQuestions.length) {
+            alert('Load a question bank before exporting.');
+            return;
+        }
+
+        const questions = allQuestions.filter(q => {
+            const answer = getExportAnswer(q.id);
+            if (type === 'review') return (answer !== undefined && answer !== q.correct) || userState.flagged.includes(q.id);
+            if (type === 'incorrect') return answer !== undefined && answer !== q.correct;
+            if (type === 'flagged') return userState.flagged.includes(q.id);
+            return false;
+        });
+
+        if (!questions.length) {
+            alert(`No ${type} questions are available to export yet.`);
+            return;
+        }
+
+        const title = type === 'review' ? 'Incorrect and Flagged Questions' : type === 'incorrect' ? 'Incorrect Questions' : 'Flagged Questions';
+        const generatedAt = new Date().toLocaleString();
+        const sections = questions.map(q => {
+            const answer = getExportAnswer(q.id);
+            const answerStatus = answer === undefined ? 'Unanswered' : answer === q.correct ? 'Correct' : 'Incorrect';
+            const options = (q.options || []).map(option => `- ${option}`).join('\n');
+            const justifications = q.justifications && Object.entries(q.justifications).length
+                ? Object.entries(q.justifications).map(([option, explanation]) => `- **${option}:** ${explanation}`).join('\n')
+                : 'No option-specific justification available.';
+
+            return [
+                `## Question ${q.id} — Domain ${getDomain(q.id)}`,
+                '',
+                `**Status:** ${answerStatus}  `,
+                `**Your answer:** ${answer || 'Not answered'}  `,
+                `**Correct answer:** ${q.correct || 'Not provided'}`,
+                '',
+                '### Question', '', q.question || '', '',
+                '### Options', '', options, '',
+                '### Full official explanation', '', q.full_explanation || q.explanation || 'No full explanation available.', '',
+                '### Option-by-option justifications', '', justifications
+            ].join('\n');
+        }).join('\n\n---\n\n');
+
+        const markdown = [
+            `# AAISM ${title}`,
+            '',
+            `Generated: ${generatedAt}  `,
+            `Questions exported: ${questions.length}`,
+            '',
+            'This file contains questions selected for focused review. Use the answer status, official explanation, and option justifications to identify knowledge gaps and generate follow-up study questions.',
+            '',
+            '---',
+            '',
+            sections
+        ].join('\n');
+        const filename = `aaism-${type}-questions-${new Date().toISOString().slice(0, 10)}.md`;
+        downloadTextFile(filename, markdown);
+        showActionStatus(`Exported ${questions.length} review question${questions.length === 1 ? '' : 's'} as ${filename}.`);
+        closeImportExportMenu();
+        alert(`Export complete. ${questions.length} review question${questions.length === 1 ? '' : 's'} saved as ${filename}.`);
+    }
+
+    function exportProgress() {
+        const payload = {
+            format: 'AAISM Exam Simulator Progress',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            statesByBank: readJsonStorage('aaism_exam_states_by_bank', {}),
+            reviewSchedulesByBank: readJsonStorage('aaism_review_schedules_by_bank', {}),
+            examHistoryByBank: readJsonStorage('aaism_exam_history_by_bank', {}),
+            examSessionsByBank: readJsonStorage('aaism_exam_sessions_by_bank', {}),
+            lastPositionsByBank: readJsonStorage('aaism_last_question_positions_by_bank', {})
+        };
+        const filename = `aaism-progress-${new Date().toISOString().slice(0, 10)}.json`;
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showActionStatus(`Progress exported as ${filename}.`);
+        closeImportExportMenu();
+        alert(`Export complete. Progress saved as ${filename}.`);
+    }
+
+    function handleProgressImport(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const payload = JSON.parse(e.target.result);
+                if (payload.format !== 'AAISM Exam Simulator Progress') throw new Error('Unsupported progress file');
+                createProgressBackup();
+                for (const [key, value] of [
+                    ['aaism_exam_states_by_bank', payload.statesByBank],
+                    ['aaism_review_schedules_by_bank', payload.reviewSchedulesByBank],
+                    ['aaism_exam_history_by_bank', payload.examHistoryByBank],
+                    ['aaism_exam_sessions_by_bank', payload.examSessionsByBank],
+                    ['aaism_last_question_positions_by_bank', payload.lastPositionsByBank]
+                ]) {
+                    if (value && typeof value === 'object') localStorage.setItem(key, JSON.stringify(value));
+                }
+                userState = readSavedUserState(currentBankKey);
+                reviewSchedule = readSavedReviewSchedule(currentBankKey);
+                examSession = readSavedExamSession();
+                applyFilter('all');
+                showActionStatus(`Progress imported successfully from ${file.name}.`);
+                closeImportExportMenu();
+                alert(`Import complete. Progress restored from ${file.name}.`);
+            } catch (error) {
+                alert('Invalid progress backup file.');
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    function showActionStatus(message) {
+        const status = document.getElementById('action-status');
+        if (status) status.textContent = message;
+    }
+
+    function closeImportExportMenu() {
+        document.querySelectorAll('.toolbar-menu[open]').forEach(menu => { menu.open = false; });
+    }
+
+    function scheduleAutoSync(delay = 1800) {
+        if (!SYNC_ENDPOINT || !currentBankKey) return;
+        clearTimeout(autoSyncTimer);
+        autoSyncTimer = setTimeout(async () => {
+            const password = getSyncPassword();
+            if (!password) return;
+            try {
+                await callSyncServer('write', password, getSyncPayload());
+                showActionStatus(`Progress auto-saved for ${currentBankKey}.`);
+            } catch (error) {
+                showActionStatus(`Progress remains local; sync unavailable.`);
+            }
+        }, delay);
+    }
+
+    function getSyncPassword() {
+        let password = localStorage.getItem('aaism_sync_password');
+        if (!password) {
+            password = prompt('Enter your Google Sheets sync password:');
+            if (password) localStorage.setItem('aaism_sync_password', password);
+        }
+        return password;
+    }
+
+    function getSyncPayload() {
+        return {
+            statesByBank: readJsonStorage('aaism_exam_states_by_bank', {}),
+            reviewSchedulesByBank: readJsonStorage('aaism_review_schedules_by_bank', {}),
+            examHistoryByBank: readJsonStorage('aaism_exam_history_by_bank', {}),
+            examSessionsByBank: readJsonStorage('aaism_exam_sessions_by_bank', {}),
+            lastPositionsByBank: readJsonStorage('aaism_last_question_positions_by_bank', {}),
+            progressBackups: readJsonStorage('aaism_progress_backups', [])
+        };
+    }
+
+    async function callSyncServer(action, password, payload = null) {
+        const response = await fetch(SYNC_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action, password, bankKey: currentBankKey, payload })
+        });
+        const result = await response.json();
+        if (!result.ok) throw new Error(result.error || 'Sync failed');
+        return result;
+    }
+
+    function restoreSyncPayload(payload) {
+        const entries = [
+            ['aaism_exam_states_by_bank', payload.statesByBank],
+            ['aaism_review_schedules_by_bank', payload.reviewSchedulesByBank],
+            ['aaism_exam_history_by_bank', payload.examHistoryByBank],
+            ['aaism_exam_sessions_by_bank', payload.examSessionsByBank],
+            ['aaism_last_question_positions_by_bank', payload.lastPositionsByBank],
+            ['aaism_progress_backups', payload.progressBackups]
+        ];
+        entries.forEach(([key, value]) => {
+            if (value !== undefined) localStorage.setItem(key, JSON.stringify(value));
+        });
+        userState = readSavedUserState(currentBankKey);
+        reviewSchedule = readSavedReviewSchedule(currentBankKey);
+        examSession = readSavedExamSession();
+        applyFilter('all');
+        updateStatsDisplay();
+    }
+
+    async function syncProgress() {
+        if (!currentBankKey || !allQuestions.length) {
+            alert('Load a question bank before synchronizing progress.');
+            return;
+        }
+        const password = getSyncPassword();
+        if (!password) return;
+        closeImportExportMenu();
+        try {
+            await callSyncServer('write', password, getSyncPayload());
+            showActionStatus(`Existing progress uploaded for ${currentBankKey}.`);
+            alert(`Upload complete. Existing progress for ${currentBankKey} is now saved in Google Sheets.`);
+        } catch (error) {
+            alert(`Upload failed: ${error.message}`);
+        }
+    }
+
+    function positionImportExportMenu(menu) {
+        if (!menu.open) return;
+        const rect = menu.getBoundingClientRect();
+        const popup = menu.querySelector('.toolbar-menu-items');
+        if (popup) {
+            popup.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - popup.offsetHeight - 12)}px`;
+            popup.style.left = `${Math.min(rect.left, window.innerWidth - popup.offsetWidth - 12)}px`;
+        }
+    }
+
+    function downloadTextFile(filename, content) {
+        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // Service workers require a same-origin script URL. The inline Blob fallback
+    // supports local deployments while a hosted sw.js can be supplied by a server.
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (error) { /* PWA remains usable without offline caching. */ }
+    }
+</script>
+
+</body>
+</html>
