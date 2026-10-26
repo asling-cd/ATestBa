@@ -125,43 +125,6 @@
         .btn-exam { background-color: #8b5cf6; color: white; border-color: #7c3aed; }
         .btn-reset { margin-left: auto; color: #ef4444; border-color: #fca5a5; }
         .toolbar-group .btn-reset { margin-left: 0; }
-        .toolbar-menu {
-            position: relative;
-            flex: 0 0 auto;
-        }
-        .toolbar-menu summary {
-            list-style: none;
-            background: white;
-            color: var(--text);
-            border: 1px solid #cbd5e1;
-            padding: 9px 13px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.85rem;
-            font-family: inherit;
-            line-height: normal;
-            white-space: nowrap;
-        }
-        .toolbar-menu summary::-webkit-details-marker { display: none; }
-        .toolbar-menu[open] summary { background: #f1f5f9; }
-        .toolbar-menu-items {
-            position: fixed;
-            z-index: 10;
-            top: 0;
-            left: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            min-width: 220px;
-            padding: 8px;
-            background: white;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.15);
-        }
-        .toolbar-menu-items .file-label,
-        .toolbar-menu-items button { width: 100%; justify-content: flex-start; }
 
         .card {
             background-color: var(--card-bg);
@@ -555,7 +518,6 @@
                 localStorage.setItem('aaism_last_question_bank', JSON.stringify({ filename: file.name, questions }));
                 setQuestionBank(questions, file.name);
                 showActionStatus(`Loaded ${file.name} (${questions.length} questions).`);
-                closeImportExportMenu();
             } catch (err) {
                 alert('Invalid JSON file. Please ensure your JSON file is formatted correctly.');
             }
@@ -1272,141 +1234,9 @@
         }
     }
 
-    function getExportAnswer(qId) {
-        if (currentFilterMode === 'mock' && examSession?.active && examSession.answers[qId] !== undefined) {
-            return examSession.answers[qId];
-        }
-        return userState.answers[qId];
-    }
-
-    function exportQuestionSet(type) {
-        if (!allQuestions.length) {
-            alert('Load a question bank before exporting.');
-            return;
-        }
-
-        const questions = allQuestions.filter(q => {
-            const answer = getExportAnswer(q.id);
-            if (type === 'review') return (answer !== undefined && answer !== q.correct) || userState.flagged.includes(q.id);
-            if (type === 'incorrect') return answer !== undefined && answer !== q.correct;
-            if (type === 'flagged') return userState.flagged.includes(q.id);
-            return false;
-        });
-
-        if (!questions.length) {
-            alert(`No ${type} questions are available to export yet.`);
-            return;
-        }
-
-        const title = type === 'review' ? 'Incorrect and Flagged Questions' : type === 'incorrect' ? 'Incorrect Questions' : 'Flagged Questions';
-        const generatedAt = new Date().toLocaleString();
-        const sections = questions.map(q => {
-            const answer = getExportAnswer(q.id);
-            const answerStatus = answer === undefined ? 'Unanswered' : answer === q.correct ? 'Correct' : 'Incorrect';
-            const options = (q.options || []).map(option => `- ${option}`).join('\n');
-            const justifications = q.justifications && Object.entries(q.justifications).length
-                ? Object.entries(q.justifications).map(([option, explanation]) => `- **${option}:** ${explanation}`).join('\n')
-                : 'No option-specific justification available.';
-
-            return [
-                `## Question ${q.id} — Domain ${getDomain(q.id)}`,
-                '',
-                `**Status:** ${answerStatus}  `,
-                `**Your answer:** ${answer || 'Not answered'}  `,
-                `**Correct answer:** ${q.correct || 'Not provided'}`,
-                '',
-                '### Question', '', q.question || '', '',
-                '### Options', '', options, '',
-                '### Full official explanation', '', q.full_explanation || q.explanation || 'No full explanation available.', '',
-                '### Option-by-option justifications', '', justifications
-            ].join('\n');
-        }).join('\n\n---\n\n');
-
-        const markdown = [
-            `# AAISM ${title}`,
-            '',
-            `Generated: ${generatedAt}  `,
-            `Questions exported: ${questions.length}`,
-            '',
-            'This file contains questions selected for focused review. Use the answer status, official explanation, and option justifications to identify knowledge gaps and generate follow-up study questions.',
-            '',
-            '---',
-            '',
-            sections
-        ].join('\n');
-        const filename = `aaism-${type}-questions-${new Date().toISOString().slice(0, 10)}.md`;
-        downloadTextFile(filename, markdown);
-        showActionStatus(`Exported ${questions.length} review question${questions.length === 1 ? '' : 's'} as ${filename}.`);
-        closeImportExportMenu();
-        alert(`Export complete. ${questions.length} review question${questions.length === 1 ? '' : 's'} saved as ${filename}.`);
-    }
-
-    function exportProgress() {
-        const payload = {
-            format: 'AAISM Exam Simulator Progress',
-            version: 1,
-            exportedAt: new Date().toISOString(),
-            statesByBank: readJsonStorage('aaism_exam_states_by_bank', {}),
-            reviewSchedulesByBank: readJsonStorage('aaism_review_schedules_by_bank', {}),
-            examHistoryByBank: readJsonStorage('aaism_exam_history_by_bank', {}),
-            examSessionsByBank: readJsonStorage('aaism_exam_sessions_by_bank', {}),
-            lastPositionsByBank: readJsonStorage('aaism_last_question_positions_by_bank', {})
-        };
-        const filename = `aaism-progress-${new Date().toISOString().slice(0, 10)}.json`;
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        showActionStatus(`Progress exported as ${filename}.`);
-        closeImportExportMenu();
-        alert(`Export complete. Progress saved as ${filename}.`);
-    }
-
-    function handleProgressImport(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const payload = JSON.parse(e.target.result);
-                if (payload.format !== 'AAISM Exam Simulator Progress') throw new Error('Unsupported progress file');
-                createProgressBackup();
-                for (const [key, value] of [
-                    ['aaism_exam_states_by_bank', payload.statesByBank],
-                    ['aaism_review_schedules_by_bank', payload.reviewSchedulesByBank],
-                    ['aaism_exam_history_by_bank', payload.examHistoryByBank],
-                    ['aaism_exam_sessions_by_bank', payload.examSessionsByBank],
-                    ['aaism_last_question_positions_by_bank', payload.lastPositionsByBank]
-                ]) {
-                    if (value && typeof value === 'object') localStorage.setItem(key, JSON.stringify(value));
-                }
-                userState = readSavedUserState(currentBankKey);
-                reviewSchedule = readSavedReviewSchedule(currentBankKey);
-                examSession = readSavedExamSession();
-                applyFilter('all');
-                showActionStatus(`Progress imported successfully from ${file.name}.`);
-                closeImportExportMenu();
-                alert(`Import complete. Progress restored from ${file.name}.`);
-            } catch (error) {
-                alert('Invalid progress backup file.');
-            }
-            event.target.value = '';
-        };
-        reader.readAsText(file);
-    }
-
     function showActionStatus(message) {
         const status = document.getElementById('action-status');
         if (status) status.textContent = message;
-    }
-
-    function closeImportExportMenu() {
-        document.querySelectorAll('.toolbar-menu[open]').forEach(menu => { menu.open = false; });
     }
 
     function scheduleAutoSync(delay = 1800) {
@@ -1424,17 +1254,17 @@
                     || Boolean(localPayload.examHistoryByBank?.[currentBankKey]?.length)
                     || Boolean(localPayload.examSessionsByBank?.[currentBankKey]);
 
-                if (!localStorage.getItem(initializedKey) && hasLocalProgress) {
-                    await callSyncServer('write', password, localPayload);
-                    localStorage.setItem(initializedKey, 'true');
-                    showActionStatus(`Local progress uploaded for ${currentBankKey}.`);
-                    return;
-                }
-
-                if (remote.payload && !localStorage.getItem(initializedKey) && !hasLocalProgress) {
+                if (remote.payload) {
                     restoreSyncPayload(remote.payload);
                     localStorage.setItem(initializedKey, 'true');
                     showActionStatus(`Progress downloaded for ${currentBankKey}.`);
+                    return;
+                }
+
+                if (hasLocalProgress) {
+                    await callSyncServer('write', password, localPayload);
+                    localStorage.setItem(initializedKey, 'true');
+                    showActionStatus(`Local progress uploaded for ${currentBankKey}.`);
                     return;
                 }
 
@@ -1468,10 +1298,14 @@
     }
 
     async function callSyncServer(action, password, payload = null) {
+        return callSyncServerForBank(action, password, currentBankKey, payload);
+    }
+
+    async function callSyncServerForBank(action, password, bankKey, payload = null) {
         const response = await fetch(SYNC_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action, password, bankKey: currentBankKey, payload })
+            body: JSON.stringify({ action, password, bankKey, payload })
         });
         const result = await response.json();
         if (!result.ok) throw new Error(result.error || 'Sync failed');
@@ -1504,7 +1338,6 @@
         }
         const password = getSyncPassword();
         if (!password) return;
-        closeImportExportMenu();
         try {
             await callSyncServer('write', password, getSyncPayload());
             localStorage.setItem(`aaism_sync_initialized_${currentBankKey}`, 'true');
@@ -1513,28 +1346,6 @@
         } catch (error) {
             alert(`Upload failed: ${error.message}`);
         }
-    }
-
-    function positionImportExportMenu(menu) {
-        if (!menu.open) return;
-        const rect = menu.getBoundingClientRect();
-        const popup = menu.querySelector('.toolbar-menu-items');
-        if (popup) {
-            popup.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - popup.offsetHeight - 12)}px`;
-            popup.style.left = `${Math.min(rect.left, window.innerWidth - popup.offsetWidth - 12)}px`;
-        }
-    }
-
-    function downloadTextFile(filename, content) {
-        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     // Service workers require a same-origin script URL. The inline Blob fallback
