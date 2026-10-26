@@ -354,22 +354,10 @@
 
     <div class="toolbar">
         <div class="toolbar-group">
-            <details class="toolbar-menu" ontoggle="positionImportExportMenu(this)">
-                <summary title="Load a question bank or import/export saved progress">⇅ Import / Export</summary>
-                <div class="toolbar-menu-items">
-                    <label class="file-label btn-load" title="Load a question-bank JSON file into the simulator">
-                        <span id="load-file-label">📁 Load question bank</span>
-                        <input type="file" id="json-file-input" accept=".json" onchange="handleFileSelect(event)">
-                    </label>
-                    <button title="Export incorrectly answered or flagged questions as a review set" onclick="exportQuestionSet('review')">⬇ Export Review Set</button>
-                    <button title="Save answers, flags, exam history, and progress to a JSON backup file" onclick="exportProgress()">⬇ Export Progress</button>
-                    <label class="file-label btn-load" title="Restore answers, flags, exam history, and progress from a JSON backup file">
-                        <span>⬆ Import Progress</span>
-                        <input type="file" accept="application/json,.json" onchange="handleProgressImport(event)">
-                    </label>
-                    <button title="Upload this device's existing progress to Google Sheets" onclick="syncProgress()">☁ Upload Progress</button>
-                </div>
-            </details>
+            <label class="file-label btn-load" title="Load a question-bank JSON file into the simulator">
+                <span id="load-file-label">📁 Load question bank</span>
+                <input type="file" id="json-file-input" accept=".json" onchange="handleFileSelect(event)">
+            </label>
             <select id="jump-select" onchange="jumpToQuestion(this.value)"></select>
         </div>
 
@@ -388,7 +376,6 @@
         <div class="toolbar-group">
             <span class="toolbar-group-label">Exam</span>
             <button id="tab-mock" class="btn-exam" onclick="startAdaptiveExam()">⚡ Adaptive Mock Exam</button>
-            <button class="btn-reset" onclick="resetProgress()">Reset History</button>
         </div>
     </div>
 
@@ -1429,7 +1416,30 @@
             const password = getSyncPassword();
             if (!password) return;
             try {
-                await callSyncServer('write', password, getSyncPayload());
+                const initializedKey = `aaism_sync_initialized_${currentBankKey}`;
+                const localPayload = getSyncPayload();
+                const remote = await callSyncServer('read', password);
+                const hasLocalProgress = Object.keys(localPayload.statesByBank?.[currentBankKey]?.answers || {}).length > 0
+                    || (localPayload.statesByBank?.[currentBankKey]?.flagged || []).length > 0
+                    || Boolean(localPayload.examHistoryByBank?.[currentBankKey]?.length)
+                    || Boolean(localPayload.examSessionsByBank?.[currentBankKey]);
+
+                if (!localStorage.getItem(initializedKey) && hasLocalProgress) {
+                    await callSyncServer('write', password, localPayload);
+                    localStorage.setItem(initializedKey, 'true');
+                    showActionStatus(`Local progress uploaded for ${currentBankKey}.`);
+                    return;
+                }
+
+                if (remote.payload && !localStorage.getItem(initializedKey) && !hasLocalProgress) {
+                    restoreSyncPayload(remote.payload);
+                    localStorage.setItem(initializedKey, 'true');
+                    showActionStatus(`Progress downloaded for ${currentBankKey}.`);
+                    return;
+                }
+
+                await callSyncServer('write', password, localPayload);
+                localStorage.setItem(initializedKey, 'true');
                 showActionStatus(`Progress auto-saved for ${currentBankKey}.`);
             } catch (error) {
                 showActionStatus(`Progress remains local; sync unavailable.`);
@@ -1497,6 +1507,7 @@
         closeImportExportMenu();
         try {
             await callSyncServer('write', password, getSyncPayload());
+            localStorage.setItem(`aaism_sync_initialized_${currentBankKey}`, 'true');
             showActionStatus(`Existing progress uploaded for ${currentBankKey}.`);
             alert(`Upload complete. Existing progress for ${currentBankKey} is now saved in Google Sheets.`);
         } catch (error) {
