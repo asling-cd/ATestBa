@@ -329,10 +329,6 @@
             <button id="tab-all" class="active" onclick="setFilter('all')">All Questions</button>
             <button id="tab-incorrect" onclick="setFilter('incorrect')">Incorrect</button>
             <button id="tab-flagged" onclick="setFilter('flagged')">Flagged</button>
-        </div>
-
-        <div class="toolbar-group">
-            <span class="toolbar-group-label">Analytics and data</span>
             <button id="tab-stats" onclick="setFilter('stats')">📊 Statistics</button>
         </div>
 
@@ -395,6 +391,8 @@
     let examTimerInterval = null;
     let currentBankKey = '';
     let autoSyncTimer = null;
+    let cloudUpdatedAt = '';
+    let appResumeSyncBound = false;
     const SYNC_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz0NmVay8nmbOOypqUqlIyNmWTxuZtiPBOxtRu600djsPSb_GR_XGiOrgWubXBRZzy0BA/exec';
     let domainConfig = { mode: 'legacy', labels: {} };
     let examSession = null;
@@ -437,6 +435,7 @@
         if (!Array.isArray(questions) || !questions.length) throw new Error('Unsupported question format');
         clearInterval(examTimerInterval);
         currentBankKey = filename || 'Question bank';
+        cloudUpdatedAt = '';
         userState = readSavedUserState(currentBankKey);
         reviewSchedule = readSavedReviewSchedule(currentBankKey);
         examSession = readSavedExamSession();
@@ -446,7 +445,8 @@
         applyFilter('all');
         restoreExamSession();
         restoreLastQuestionPosition();
-        scheduleAutoSync(800);
+        syncFromCloud(true);
+        bindAppResumeSync();
     }
 
     function configureDomainModel(questions, filename) {
@@ -1248,33 +1248,44 @@
             try {
                 const initializedKey = `aaism_sync_initialized_${currentBankKey}`;
                 const localPayload = getSyncPayload();
-                const remote = await callSyncServer('read', password);
-                const hasLocalProgress = Object.keys(localPayload.statesByBank?.[currentBankKey]?.answers || {}).length > 0
-                    || (localPayload.statesByBank?.[currentBankKey]?.flagged || []).length > 0
-                    || Boolean(localPayload.examHistoryByBank?.[currentBankKey]?.length)
-                    || Boolean(localPayload.examSessionsByBank?.[currentBankKey]);
-
-                if (remote.payload) {
-                    restoreSyncPayload(remote.payload);
-                    localStorage.setItem(initializedKey, 'true');
-                    showActionStatus(`Progress downloaded for ${currentBankKey}.`);
-                    return;
-                }
-
-                if (hasLocalProgress) {
-                    await callSyncServer('write', password, localPayload);
-                    localStorage.setItem(initializedKey, 'true');
-                    showActionStatus(`Local progress uploaded for ${currentBankKey}.`);
-                    return;
-                }
-
-                await callSyncServer('write', password, localPayload);
+                const result = await callSyncServer('write', password, localPayload);
                 localStorage.setItem(initializedKey, 'true');
+                cloudUpdatedAt = result.updatedAt || new Date().toISOString();
                 showActionStatus(`Progress auto-saved for ${currentBankKey}.`);
             } catch (error) {
                 showActionStatus(`Progress remains local; sync unavailable.`);
             }
         }, delay);
+    }
+
+    async function syncFromCloud(initial = false) {
+        if (!SYNC_ENDPOINT || !currentBankKey) return;
+        const password = getSyncPassword();
+        if (!password) return;
+        try {
+            const remote = await callSyncServer('read', password);
+            if (remote.payload && (initial || remote.updatedAt !== cloudUpdatedAt)) {
+                restoreSyncPayload(remote.payload);
+                cloudUpdatedAt = remote.updatedAt || cloudUpdatedAt;
+                localStorage.setItem(`aaism_sync_initialized_${currentBankKey}`, 'true');
+                showActionStatus(`Progress loaded from Google Sheets for ${currentBankKey}.`);
+                return;
+            }
+            if (initial && !remote.payload) {
+                scheduleAutoSync(200);
+            }
+        } catch (error) {
+            showActionStatus('Progress remains local; sync unavailable.');
+        }
+    }
+
+    function bindAppResumeSync() {
+        if (appResumeSyncBound) return;
+        appResumeSyncBound = true;
+        window.addEventListener('focus', () => syncFromCloud(false));
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') syncFromCloud(false);
+        });
     }
 
     function getSyncPassword() {
