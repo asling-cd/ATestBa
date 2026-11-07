@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow, noarchive">
     <title>ISACA AAISM Adaptive Exam & Analytics Bank</title>
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#edf5ff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -409,6 +409,72 @@
         .signature-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
         @media (max-width: 899px) { header { align-items: flex-start; } .session-controls { width: 100%; justify-content: flex-start; } }
         @media (max-width: 560px) { header { border-radius: 22px; } .brand-lockup { align-items: flex-start; } #exam-session-controls { flex-wrap: wrap; } .toolbar { border-radius: 15px; } .toolbar-group { border-right: 0; } .card-header { padding-left: 18px; padding-right: 18px; } .question-text, .options-group { padding-left: 18px; padding-right: 18px; } .explanation-box { margin-left: 18px; margin-right: 18px; } }
+
+        /* Light glass theme */
+        :root {
+            --primary: #172b4d;
+            --accent: #087f78;
+            --bg: #edf5ff;
+            --card-bg: rgba(255, 255, 255, .7);
+            --text: #172b4d;
+            --muted: #637895;
+            --line: rgba(58, 99, 145, .17);
+            --correct: #168354;
+            --incorrect: #bd4355;
+            --flagged: #aa6b00;
+            --violet: #6657c8;
+        }
+        body {
+            color: var(--text);
+            background:
+                radial-gradient(circle at 8% 3%, rgba(92, 168, 255, .25), transparent 28rem),
+                radial-gradient(circle at 92% 10%, rgba(92, 221, 197, .2), transparent 26rem),
+                linear-gradient(145deg, #f6fbff 0%, #edf5ff 54%, #e6f0ff 100%);
+        }
+        body::before { opacity: .5; background-image: linear-gradient(rgba(65,113,164,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(65,113,164,.04) 1px, transparent 1px); }
+        header, .toolbar, .question-card, .review-panel, .modal {
+            border-color: rgba(87, 133, 181, .2);
+            background: linear-gradient(135deg, rgba(255,255,255,.78), rgba(235,245,255,.63));
+            box-shadow: 0 22px 70px rgba(53, 91, 132, .13), inset 0 1px 0 rgba(255,255,255,.94);
+        }
+        header::after { background: rgba(92, 221, 197, .18); }
+        .brand-mark { border-color: rgba(8,127,120,.32); background: linear-gradient(145deg, rgba(92,221,197,.34), rgba(139,128,238,.2)); color: #087f78; box-shadow: 0 0 28px rgba(8,127,120,.12); }
+        .eyebrow { color: #087f78; }
+        h1, .question-text, .modal h2 { color: #172b4d; }
+        .score-info { color: var(--muted); }
+        .session-controls > label { color: var(--muted); }
+        .timer-display { border-color: rgba(8,127,120,.25); background: rgba(8,127,120,.08); color: #087f78; }
+        .timer-display.warning { background: rgba(170,107,0,.1); color: var(--flagged); }
+        .timer-display.expired { background: rgba(189,67,85,.1); color: var(--incorrect); }
+        button, select, label.file-label { border-color: var(--line); background: rgba(255,255,255,.5); color: var(--text); }
+        button:hover, select:hover, label.file-label:hover { border-color: rgba(8,127,120,.42); background: rgba(8,127,120,.08); box-shadow: 0 7px 20px rgba(53,91,132,.1); }
+        button.active { background: rgba(8,127,120,.12); border-color: rgba(8,127,120,.42); color: #087f78; }
+        .btn-load { background: linear-gradient(135deg, rgba(92,221,197,.26), rgba(92,221,197,.1)); color: #087f78; border-color: rgba(8,127,120,.3); }
+        .btn-exam { background: linear-gradient(135deg, rgba(139,128,238,.25), rgba(102,87,200,.12)); color: #5142b3; border-color: rgba(102,87,200,.34); }
+        .btn-finish { background: rgba(189,67,85,.1); color: #a83249; border-color: rgba(189,67,85,.28); }
+        .btn-pause { background: rgba(170,107,0,.1); color: #976000; border-color: rgba(170,107,0,.28); }
+        .review-panel h3 { color: #172b4d; }
+        .review-placeholder, .empty-state { color: var(--muted); }
+        .domain-badge { background: rgba(102,87,200,.1); color: #5c4dbb; border-color: rgba(102,87,200,.2); }
+        .flag-btn { background: rgba(255,255,255,.38); color: var(--muted); }
+        .flag-btn.flagged { background: rgba(170,107,0,.12); color: #976000; border-color: rgba(170,107,0,.35); }
+        .option-item { border-color: var(--line); background: rgba(255,255,255,.46); color: #314866; }
+        .option-item:hover { background: rgba(8,127,120,.07); border-color: rgba(8,127,120,.33); }
+        .explanation-box { border-left-color: #087f78; background: rgba(8,127,120,.06); }
+        .status-banner.correct { background: rgba(22,131,84,.1); color: var(--correct); }
+        .status-banner.incorrect { background: rgba(189,67,85,.1); color: var(--incorrect); }
+        .review-note { background: rgba(170,107,0,.09); border-left-color: var(--flagged); }
+        .stat-card, .result-metric { background: rgba(255,255,255,.48); border-color: var(--line); }
+        .stat-card h4, .stat-sub, .result-metric span { color: var(--muted); }
+        .stat-val, .result-metric strong { color: #087f78; }
+        .pagination { background: linear-gradient(to bottom, transparent, rgba(237,245,255,.96) 32%); }
+        .modal-backdrop { background: rgba(20, 48, 80, .3); }
+        .modal p { color: var(--muted); }
+        .setup-fields label, .modal label { color: #314866; }
+        .setup-fields input, .setup-fields select, .modal input { border-color: var(--line); background: rgba(255,255,255,.7); color: var(--text); }
+        .deerflow-signature { color: rgba(99,120,149,.75); }
+        .deerflow-signature:hover { color: #087f78; }
+        .signature-dot { background: #45bca7; box-shadow: 0 0 10px rgba(69,188,167,.8); }
     </style>
 </head>
 <body>
