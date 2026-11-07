@@ -410,6 +410,22 @@
         @media (max-width: 899px) { header { align-items: flex-start; } .session-controls { width: 100%; justify-content: flex-start; } }
         @media (max-width: 560px) { header { border-radius: 22px; } .brand-lockup { align-items: flex-start; } #exam-session-controls { flex-wrap: wrap; } .toolbar { border-radius: 15px; } .toolbar-group { border-right: 0; } .card-header { padding-left: 18px; padding-right: 18px; } .question-text, .options-group { padding-left: 18px; padding-right: 18px; } .explanation-box { margin-left: 18px; margin-right: 18px; } }
 
+        /* Keep the modern theme responsive after its desktop overrides. */
+        @media (max-width: 899px) {
+            body { padding: 12px; }
+            header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .session-controls { width: 100%; justify-content: flex-start; }
+            .workspace { grid-template-columns: 1fr; }
+            .review-panel { position: static; max-height: none; }
+        }
+        @media (max-width: 560px) {
+            .toolbar { align-items: stretch; }
+            .toolbar > * { width: 100%; justify-content: center; }
+            .toolbar-group { flex-wrap: wrap; }
+            .btn-reset { margin-left: 0; }
+            .card, .question-card, .review-panel { padding: 16px; }
+        }
+
         /* Light glass theme */
         :root {
             --primary: #172b4d;
